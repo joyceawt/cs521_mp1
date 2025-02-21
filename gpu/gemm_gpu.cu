@@ -274,7 +274,7 @@ void gemm_cublas(float* d_A, float* d_B, float* d_C, int M, int N, int K) {
 
   // Perform warmup operation with cublas
   cublasStatus_t stat =
-      cublasSgemm(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_T, N, M, K, &alpha, d_B,
+      cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
                   N, d_A, K, &beta, d_C, N);
 
   if (stat != CUBLAS_STATUS_SUCCESS) {
