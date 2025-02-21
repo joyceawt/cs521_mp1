@@ -194,9 +194,58 @@ void gemm_gpu_o2(float* A, float* B, float* C, int M, int N, int K) {
 }
 
 __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
-                                   int K) {}
+                                   int K, int BLOCK_SIZE) {
+  // Initialized shared memory array As and Bs to store the sub-matrix of A and
+  // B
+  __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+  int row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+  int col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+
+  float sum = 0.0f;
+
+  // Loop over all the sub-matrices of A and B required to compute the block
+  // sub-matrix (K sub-matrices/dimension)
+  int numTiles = (K + BLOCK_SIZE - 1) / BLOCK_SIZE;  // handle partial tiles
+  for (int t = 0; t < numTiles; t++) {
+    // A sub-block; Load one tile of A into shared memory (if in bounds)
+    int kA = t * BLOCK_SIZE + threadIdx.x;  // column index of A
+    if (row < M && kA < K) {
+      As[threadIdx.y][threadIdx.x] = A[row * K + kA];
+    } else {
+      As[threadIdx.y][threadIdx.x] = 0.0f;  // if out of bounds, set to 0
+    }
+
+    // B sub-block; Load one tile of B into shared memory (if in bounds)
+    int kB = t * BLOCK_SIZE + threadIdx.y;  // row index of B
+    if (kB < K && col < N) {
+      Bs[threadIdx.y][threadIdx.x] = B[kB * N + col];
+    } else {
+      Bs[threadIdx.y][threadIdx.x] = 0.0f;
+    }
+
+    __syncthreads();
+
+    // Multiply the two sub-matrices for this tile
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+      sum += As[threadIdx.y][i] * Bs[i][threadIdx.x];
+    };
+
+    __syncthreads();
+  }
+
+  if (row < M && col < N) {
+    C[row * N + col] = sum;
+  }
+}
 void gemm_gpu_o3(float* A, float* B, float* C, int M, int N, int K) {
-  // Init block and grid size
+  // Init block and grid size// Init block and grid size
+  int BLOCK_SIZE = 32;
+  dim3 blockSize(BLOCK_SIZE, BLOCK_SIZE);
+  dim3 gridSize((N + TILE_WIDTH - 1) / TILE_WIDTH,
+                (M + TILE_WIDTH - 1) / TILE_WIDTH);
+  gemm_gpu_o3_kernel<<<gridSize, blockSize>>>(A, B, C, M, N, K, BLOCK_SIZE);
 }
 
 int main(int argc, char* argv[]) {
