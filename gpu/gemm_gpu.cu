@@ -132,7 +132,7 @@ __global__ void gemm_gpu_o1_kernel(float* A, float* B, float* C, int M, int N,
 }
 void gemm_gpu_o1(float* A, float* B, float* C, int M, int N,
                  int K) {  // Init block and grid size
-  dim3 blockSize(TILE_WIDTH TILE_WIDTH);
+  dim3 blockSize(TILE_WIDTH, TILE_WIDTH);
   dim3 gridSize((N + blockSize.x - 1) / blockSize.x,
                 (M + blockSize.y - 1) / blockSize.y);
   gemm_gpu_o1_kernel<<<gridSize, blockSize>>>(A, B, C, M, N, K);
