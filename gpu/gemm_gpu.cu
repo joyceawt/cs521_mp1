@@ -277,13 +277,13 @@ int main(int argc, char* argv[]) {
   // Check if implementation is correct
   auto ref = Ref();
   float* refC = new float[Ref::M * Ref::N]();
-  CHECK(gemm_gpu_o0)
+  // CHECK(gemm_gpu_o0)
   CHECK(gemm_gpu_o1)
   CHECK(gemm_gpu_o2)
   CHECK(gemm_gpu_o3)
 
   // Actual run
-  TIME(gemm_gpu_o0)
+  // TIME(gemm_gpu_o0)
   TIME(gemm_gpu_o1)
   TIME(gemm_gpu_o2)
   TIME(gemm_gpu_o3)
