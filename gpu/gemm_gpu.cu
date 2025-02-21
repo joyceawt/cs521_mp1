@@ -273,12 +273,13 @@ void gemm_cublas(float* d_A, float* d_B, float* d_C, int M, int N, int K) {
   float beta = 0.0f;
 
   // Perform warmup operation with cublas
-  cublasStatus_t stat =
-      cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, &alpha, d_A,
-                  M,             // pointer to A, lda = M
-                  d_B, K,        // pointer to B, ldb = K
-                  &beta, d_C, M  // pointer to C, ldc = M
-      );
+  cublasStatus_t stat = cublasSgemm(cublasHandle,
+                                    CUBLAS_OP_T,  // treat B as transposed
+                                    CUBLAS_OP_T,  // treat A as transposed
+                                    N,            // rows
+                                    M,            // cols
+                                    K,            // dim
+                                    &alpha, d_B, K, d_A, M, &beta, d_C, N);
 
   if (stat != CUBLAS_STATUS_SUCCESS) {
     printf("cublasSgemm failed with code %d\n", stat);
