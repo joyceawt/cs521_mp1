@@ -262,7 +262,7 @@ void gemm_gpu_o3(float* A, float* B, float* C, int M, int N, int K) {
 void gemm_cublas(float* d_A, float* d_B, float* d_C, int M, int N, int K) {
   // Extra credit
   // Referenced from
-  // https://github.com/zchee/cuda-sample/blob/master/0_Simple/matrixMulCUBLAS/matrixMulCUBLAS.cpp
+  // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/4_CUDA_Libraries/matrixMulCUBLAS/matrixMulCUBLAS.cpp
 
   if (!cublasInitialized) {
     cublasCreate(&cublasHandle);
