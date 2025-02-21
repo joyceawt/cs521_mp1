@@ -1,11 +1,15 @@
 #include <cuda_runtime.h>
 
 #include "../include/utils.h"
+#include "cublas_v2.h"  // for extra credit
 
 #define NUM_RUNS 10
 #define TILE_WIDTH 16    // also block size
 #define BLOCK_SIZE_X 16  // for o3
 #define BLOCK_SIZE_Y 32  // for o3
+
+static cublasHandle_t cublasHandle;
+static bool cublasInitialized = false;
 
 #define CUDA_CHECK(func)                                                   \
   do {                                                                     \
@@ -255,6 +259,33 @@ void gemm_gpu_o3(float* A, float* B, float* C, int M, int N, int K) {
   gemm_gpu_o3_kernel<<<gridSize, blockSize>>>(A, B, C, M, N, K);
 }
 
+void gemm_cublas(float* d_A, float* d_B, float* d_C, int M, int N, int K) {
+  // Extra credit
+  // Referenced from
+  // https://github.com/zchee/cuda-sample/blob/master/0_Simple/matrixMulCUBLAS/matrixMulCUBLAS.cpp
+
+  if (!cublasInitialized) {
+    cublasCreate(&cublasHandle);
+    cublasInitialized = true;
+  }
+
+  float alpha = 1.0f;
+  float beta = 0.0f;
+
+  // Perform warmup operation with cublas
+  cublasStatus_t stat = cublasSgemm(cublasHandle,
+                                    CUBLAS_OP_T,  // treat B as transposed
+                                    CUBLAS_OP_T,  // treat A as transposed
+                                    M,            // rows
+                                    N,            // cols
+                                    K,            // dim
+                                    &alpha, d_B, N, d_A, K, &beta, d_C, M);
+
+  if (stat != CUBLAS_STATUS_SUCCESS) {
+    printf("cublasSgemm failed with code %d\n", stat);
+  }
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 3) {
     std::cout << "Usage: mp1 <M> <N> <K>" << std::endl;
@@ -281,12 +312,14 @@ int main(int argc, char* argv[]) {
   CHECK(gemm_gpu_o1)
   CHECK(gemm_gpu_o2)
   CHECK(gemm_gpu_o3)
+  CHECK(gemm_cublas)
 
   // Actual run
   // TIME(gemm_gpu_o0)
   TIME(gemm_gpu_o1)
   TIME(gemm_gpu_o2)
   TIME(gemm_gpu_o3)
+  TIME(gemm_cublas)
 
   cudaFreeHost(A);
   cudaFreeHost(B);
@@ -295,6 +328,10 @@ int main(int argc, char* argv[]) {
   delete[] A;
   delete[] B;
   delete[] C;
+
+  if (cublasInitialized) {
+    cublasDestroy(cublasHandle);
+  }
 
   return 0;
 }
