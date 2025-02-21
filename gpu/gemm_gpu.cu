@@ -3,8 +3,9 @@
 #include "../include/utils.h"
 
 #define NUM_RUNS 10
-#define TILE_WIDTH 16  // also block size
-#define BLOCK_SIZE 8
+#define TILE_WIDTH 16    // also block size
+#define BLOCK_SIZE_X 16  // for o3
+#define BLOCK_SIZE_Y 32  // for o3
 
 #define CUDA_CHECK(func)                                                   \
   do {                                                                     \
@@ -196,22 +197,26 @@ void gemm_gpu_o2(float* A, float* B, float* C, int M, int N, int K) {
 
 __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
                                    int K) {
+  // Results from experimenting with parameters:
+  // 1. Using 16x16x is faster than 8x8
+  // 2. Using 16x16 is faster than 32x32
+  // 3. Using 16x32 is
   // Initialized shared memory array As and Bs to store the sub-matrix of A and
   // B
-  __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float As[BLOCK_SIZE_Y][BLOCK_SIZE_X];
+  __shared__ float Bs[BLOCK_SIZE_Y][BLOCK_SIZE_X];
 
-  int row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
-  int col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+  int row = blockIdx.y * BLOCK_SIZE_Y + threadIdx.y;
+  int col = blockIdx.x * BLOCK_SIZE_X + threadIdx.x;
 
   float sum = 0.0f;
 
   // Loop over all the sub-matrices of A and B required to compute the block
   // sub-matrix (K sub-matrices/dimension)
-  int numTiles = (K + BLOCK_SIZE - 1) / BLOCK_SIZE;  // handle partial tiles
+  int numTiles = (K + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X;  // handle partial tiles
   for (int t = 0; t < numTiles; t++) {
     // A sub-block; Load one tile of A into shared memory (if in bounds)
-    int kA = t * BLOCK_SIZE + threadIdx.x;  // column index of A
+    int kA = t * BLOCK_SIZE_X + threadIdx.x;  // column index of A
     if (row < M && kA < K) {
       As[threadIdx.y][threadIdx.x] = A[row * K + kA];
     } else {
@@ -219,7 +224,7 @@ __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
     }
 
     // B sub-block; Load one tile of B into shared memory (if in bounds)
-    int kB = t * BLOCK_SIZE + threadIdx.y;  // row index of B
+    int kB = t * BLOCK_SIZE_X + threadIdx.y;  // row index of B
     if (kB < K && col < N) {
       Bs[threadIdx.y][threadIdx.x] = B[kB * N + col];
     } else {
@@ -229,7 +234,7 @@ __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
     __syncthreads();
 
     // Multiply the two sub-matrices for this tile
-    for (int i = 0; i < BLOCK_SIZE; i++) {
+    for (int i = 0; i < BLOCK_SIZE_X; i++) {
       sum += As[threadIdx.y][i] * Bs[i][threadIdx.x];
     };
 
@@ -242,9 +247,9 @@ __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
 }
 void gemm_gpu_o3(float* A, float* B, float* C, int M, int N, int K) {
   // Init block and grid size// Init block and grid size
-  dim3 blockSize(BLOCK_SIZE, BLOCK_SIZE);
-  dim3 gridSize((N + BLOCK_SIZE - 1) / BLOCK_SIZE,
-                (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
+  dim3 blockSize(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+  dim3 gridSize((N + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X,
+                (M + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y);
   gemm_gpu_o3_kernel<<<gridSize, blockSize>>>(A, B, C, M, N, K);
 }
 
