@@ -198,9 +198,9 @@ void gemm_gpu_o2(float* A, float* B, float* C, int M, int N, int K) {
 __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
                                    int K) {
   // Results from experimenting with parameters:
-  // 1. Using 16x16x is faster than 8x8
+  // 1. Using 16x16 is faster than 8x8
   // 2. Using 16x16 is faster than 32x32
-  // 3. Using 16x32 is
+  // 3. Using 16x32 is slower than 16x16 and 8x8
   // Initialized shared memory array As and Bs to store the sub-matrix of A and
   // B
   __shared__ float As[BLOCK_SIZE_Y][BLOCK_SIZE_X];
