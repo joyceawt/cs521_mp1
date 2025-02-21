@@ -4,7 +4,7 @@
 
 #define NUM_RUNS 10
 #define TILE_WIDTH 16  // also block size
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 8
 
 #define CUDA_CHECK(func)                                                   \
   do {                                                                     \
