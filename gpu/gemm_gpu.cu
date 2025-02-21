@@ -4,6 +4,7 @@
 
 #define NUM_RUNS 10
 #define TILE_WIDTH 16  // also block size
+#define BLOCK_SIZE 32
 
 #define CUDA_CHECK(func)                                                   \
   do {                                                                     \
@@ -195,7 +196,6 @@ void gemm_gpu_o2(float* A, float* B, float* C, int M, int N, int K) {
 
 __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
                                    int K) {
-  int BLOCK_SIZE = 32;
   // Initialized shared memory array As and Bs to store the sub-matrix of A and
   // B
   __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
@@ -242,7 +242,6 @@ __global__ void gemm_gpu_o3_kernel(float* A, float* B, float* C, int M, int N,
 }
 void gemm_gpu_o3(float* A, float* B, float* C, int M, int N, int K) {
   // Init block and grid size// Init block and grid size
-  int BLOCK_SIZE = 32;
   dim3 blockSize(BLOCK_SIZE, BLOCK_SIZE);
   dim3 gridSize((N + BLOCK_SIZE - 1) / BLOCK_SIZE,
                 (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
