@@ -525,7 +525,7 @@ Students also need to submit a write up briefly describing their implementations
 
 For the correctness test, we use two types of images. The first type is a small image with dimensions of 32×16. The second type is a large image with dimensions of 224×224, which exceeds the capacity of the SBUF and cannot fit within it.
 
-For the performance test, we evaluate the performance using float16 and float32 precision. We will compare the performance of your program with the reference solution. You will pass the test if your p99 latency is within 150% of the reference latency.
+For the performance test, we evaluate the performance using float16 and float32 precision. We will compare the performance of your program with the reference solution. You will pass the test if your p99 latency is within 150% of the reference latency. Please note that the performance requirement in the `test_harness.py` is already 150% of the reference latency.
 
 ## FAQs
 
