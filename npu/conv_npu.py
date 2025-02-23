@@ -87,7 +87,7 @@ def conv2d(X, W, bias):
     for b in nl.affine_range(batch_size):
 
         # 5) Allocate space for input images in SBUF
-        x_sbuf = nl.ndarray((n_tiles_c_in, c_in_pmax, chunk_size, input_width),
+        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), chunk_size, input_width),
                             dtype=X.dtype, buffer=nl.sbuf)
 
         # 6) loop over chunk indices
@@ -95,17 +95,25 @@ def conv2d(X, W, bias):
             first_row = chunk_idx * chunk_size
             last_row = min(first_row + chunk_size, input_height)
             rows_in_chunk = last_row - first_row
-            valid_rows = rows_in_chunk - (filter_height - 1)
 
             # 6) Load that row-chunk of input tiles into SBUF
             for ic_tile in nl.affine_range(n_tiles_c_in):
                 start_c = ic_tile * c_in_pmax
                 end_c = start_c + c_in_pmax
-                x_sbuf[ic_tile] = nl.load(
-                    X[b, start_c:end_c, first_row:last_row, :])
+
+                # loop over each row in the chunk
+                for ic_row in nl.affine_range(rows_in_chunk):
+                    row_global = first_row + ic_row
+                    mask = row_global < input_height
+                    x_sbuf[ic_tile, :, ic_row, :] = nl.load(
+                        X[b, start_c:end_c, row_global, :], mask=mask)
 
             # 7) Process each output channel tile and accumulate partial sums
             for oc_tile in nl.affine_range(n_tiles_c_out):
+                valid_rows = rows_in_chunk - (filter_height - 1)
+                if valid_rows <= 0:
+                    continue
+
                 psum = nl.zeros((nl.par_dim(c_out_pmax), valid_rows,
                                 out_width), dtype=X.dtype, buffer=nl.psum)
 
