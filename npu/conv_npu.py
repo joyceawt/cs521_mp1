@@ -87,6 +87,7 @@ def conv2d(X, W, bias):
     for b in nl.affine_range(batch_size):
 
         # 5) loop over total number of chunks
+        assert input_height, "input height type", type(input_height)
         for chunk in range(n_chunks):
             first_row = chunk * chunk_size
             last_row = min(first_row + chunk_size, input_height)
