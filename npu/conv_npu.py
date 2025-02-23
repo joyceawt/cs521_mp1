@@ -56,7 +56,7 @@ def conv2d(X, W, bias):
 
     # Initialize output array/ allocate space to be stored in HBM
     X_out = nl.ndarray(
-        shape=(batch_size, out_channels, out_pool_height, out_pool_width),
+        shape=(batch_size, out_channels, out_height, out_width),
         dtype=X.dtype,
         buffer=nl.hbm,
     )
