@@ -114,7 +114,7 @@ def conv2d(X, W, bias):
 
                 tile_psum = nl.zeros(
                     (nl.par_dim(c_out_pmax), chunk_size, out_width),
-                    dtype=X.dtype, buffer=nl.psum
+                    dtype=nl.float32, buffer=nl.psum
                 )
 
                 # for each in tile
