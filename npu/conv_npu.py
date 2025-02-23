@@ -102,7 +102,7 @@ def conv2d(X, W, bias):
                 end_c = start_c + c_in_pmax
 
                 # loop over each row in the chunk
-                for ic_row in nl.affine_range(rows_in_chunk):
+                for ic_row in nl.affine_range(chunk_size):
                     row_global = first_row + ic_row
                     mask = row_global < input_height
                     x_sbuf[ic_tile, :, ic_row, :] = nl.load(
