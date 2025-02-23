@@ -67,7 +67,7 @@ def conv2d(X, W, bias):
     c_out_pmax = c_in_pmax  # 128
     n_tiles_c_in = in_channels // c_in_pmax
     n_tiles_c_out = out_channels // c_out_pmax
-    chunk_size = 16  # also known as row chunk size
+    chunk_size = 2  # also known as row chunk size
     n_chunks = (input_height + chunk_size - 1) // chunk_size
     overlap = filter_height - 1
     input_chunk = chunk_size + overlap
