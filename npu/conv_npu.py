@@ -83,17 +83,14 @@ def conv2d(X, W, bias):
 
     # Process the images in batches
     for b in nl.affine_range(batch_size):
-        X_b = X[b]
-
-        # Reshape input for tiling
-        X_tiled = X_b.reshape((in_channels, input_height * input_width))
-        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), input_height * input_width),
+        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), input_height, input_width),
                             dtype=X.dtype, buffer=nl.sbuf)
 
         # Load input tiles into SBUF
         for ic_tile in nl.affine_range(n_tiles_c_in):
-            x_sbuf[ic_tile] = nl.load(
-                X_tiled[ic_tile * c_in_pmax: (ic_tile + 1) * c_in_pmax, :])
+            start_c = ic_tile * c_in_pmax
+            end_c = start_c + c_in_pmax
+            x_sbuf[ic_tile] = nl.load(X[b, start_c:end_c, :, :])
 
         # Process each output channel tile
         for oc_tile in nl.affine_range(n_tiles_c_out):
