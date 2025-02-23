@@ -91,7 +91,7 @@ def conv2d(X, W, bias):
                             dtype=X.dtype, buffer=nl.sbuf)
 
         # 6) loop over chunk indices
-        for chunk_idx in nl.affine_range(n_chunks):
+        for chunk_idx in nl.sequential_range(n_chunks):
             first_row = chunk_idx * chunk_size
             last_row = min(first_row + chunk_size, input_height)
             rows_in_chunk = last_row - first_row
