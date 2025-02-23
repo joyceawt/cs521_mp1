@@ -109,11 +109,7 @@ def conv2d(X, W, bias):
                         window = x_sbuf[ic_tile, :, fh:fh +
                                         out_height, fw:fw+out_width]
 
-                        # Reshape for matmul
-                        window_flat = window.reshape((c_in_pmax, -1))
-
-                        psum += nl.matmul(w_tile, window_flat).reshape(
-                            (c_out_pmax, out_height, out_width))
+                        psum += nl.matmul(w_tile, window)
 
             # 4) Add bias and store the result in HBM
             result = psum + bias[oc_tile *
