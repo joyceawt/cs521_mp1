@@ -86,11 +86,9 @@ def conv2d(X, W, bias):
     # 4) Process the images in batches
     for b in nl.affine_range(batch_size):
 
-        # 5) loop over total number of chunks
-        print(
-            f"input height   is = {input_height}, type = {type(input_height)}")
-        for chunk in range(n_chunks):
-            first_row = chunk * chunk_size
+        # 5) loop over chunk indices
+        for chunk_idx in nl.affine_range(n_chunks):
+            first_row = chunk_idx * chunk_size
             last_row = min(first_row + chunk_size, input_height)
             rows_in_chunk = last_row - first_row
             out_rows_in_chunk = rows_in_chunk - (filter_height - 1)
@@ -102,7 +100,7 @@ def conv2d(X, W, bias):
             out_row_start = first_row
 
             # 6) Allocate row-chunk sized tiles for input images
-            x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), rows_in_chunk, input_width),
+            x_sbuf = nl.ndarray((n_tiles_c_in, c_in_pmax, rows_in_chunk, input_width),
                                 dtype=X.dtype, buffer=nl.sbuf)
 
             # 6) Load that row-chunk of input tiles into SBUF
