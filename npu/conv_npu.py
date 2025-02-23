@@ -89,7 +89,7 @@ def conv2d(X, W, bias):
         # 5) loop over total number of chunks
         for chunk in nl.affine_range(n_chunks):
             first_row = chunk * chunk_size
-            last_row = nl.min(first_row + chunk_size, input_height)
+            last_row = min(first_row + chunk_size, input_height)
             rows_in_chunk = last_row - first_row
             out_rows_in_chunk = rows_in_chunk - (filter_height - 1)
 
