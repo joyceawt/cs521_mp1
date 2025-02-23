@@ -68,17 +68,6 @@ def conv2d(X, W, bias):
     n_tiles_c_in = in_channels // c_in_pmax
     n_tiles_c_out = out_channels // c_out_pmax
 
-    # TODO:
-    # 1. Reshape the weights to the required shape
-    # 2. Compute the convolution output (use nl.matmul to do the multiply-accumulate, may need multiple calls)
-    # 3. Store the result in X_out
-
-    # For SBUF: split data into tiles so each chunk can be loaded into SBUF from HBM using nl.load
-    # Load each tile, compute, then store partila result back to HBM using nl.store
-    # For PSUM: partial sums can be accumulated in PSUM. Then copy ifnal sums back to SBUF or HBM when done
-
-    ##############################
-
     # 1) Reshape weights and break out_channels and in_channels into multiple tiles (6D shape)
     W = W.reshape((n_tiles_c_out, c_out_pmax, n_tiles_c_in,
                   c_in_pmax, filter_height, filter_width))
@@ -92,17 +81,47 @@ def conv2d(X, W, bias):
     for oc_tile in nl.affine_range(n_tiles_c_out):
         w_sbuf[oc_tile] = nl.load(W[oc_tile])
 
-    # temporary, just check if i can use
-    try:
-        test_psum = nl.zeros((c_out_pmax, out_width),
-                             dtype=X.dtype, buffer=nl.psum)
-        assert 'can use psum'
-    except RuntimeError:
-        pass
-
     # Process the images in batches
     for b in nl.affine_range(batch_size):
-        raise RuntimeError("Please fill your implementation of computing convolution"
-                           " of X[b] with the weights W and bias b and store the result in X_out[b]")
+        X_b = X[b]
+
+        # Reshape input for tiling
+        X_tiled = X_b.reshape(
+            (n_tiles_c_in, c_in_pmax, input_height, input_width))
+        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), input_height, input_width),
+                            dtype=X.dtype, buffer=nl.sbuf)
+
+        # Load input tiles into SBUF
+        for ic_tile in nl.affine_range(n_tiles_c_in):
+            x_sbuf[ic_tile] = nl.load(X_tiled[ic_tile])
+
+        # Process each output channel tile
+        for oc_tile in nl.affine_range(n_tiles_c_out):
+            psum = nl.zeros((nl.par_dim(c_out_pmax), out_height,
+                            out_width), dtype=X.dtype, buffer=nl.psum)
+
+        # Process input channel tiles
+        for ic_tile in nl.affine_range(n_tiles_c_in):
+            # Process each filter tile
+            for fh in nl.affine_range(filter_height):
+                for fw in nl.affine_range(filter_width):
+                    # Load the weights for this tile
+                    w_tile = w_sbuf[oc_tile, :, ic_tile, :, fh, fw]
+
+                    # Extract input window
+                    window = x_sbuf[ic_tile, :, fh:fh +
+                                    out_height, fw:fw+out_width]
+
+                    # Reshape for matmul
+                    window_flat = window.reshape((c_in_pmax, -1))
+
+                    psum += nl.matmul(w_tile, window_flat).reshape(
+                        (c_out_pmax, out_height, out_width))
+
+        # 4) Add bias and store the result in HBM
+        result = psum + bias[oc_tile *
+                             c_out_pmax: (oc_tile + 1) * c_out_pmax, None, None]
+        X_out[b, oc_tile * c_out_pmax: (oc_tile + 1)
+              * c_out_pmax] = nl.store(result)
 
     return X_out
