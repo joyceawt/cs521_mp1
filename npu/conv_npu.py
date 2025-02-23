@@ -112,9 +112,13 @@ def conv2d(X, W, bias):
                         psum += nl.matmul(w_tile, window)
 
             # 4) Add bias and store the result in HBM
+            bias_sbuf = nl.ndarray(
+                (nl.par_dim(c_out_pmax),), dtype=bias.dtype, buffer=nl.sbuf)
             bias_slice = bias[oc_tile * c_out_pmax: (oc_tile + 1) * c_out_pmax]
-            result = nisa.tensor_scalar(psum, nl.add, bias_slice)
-            X_out[b, oc_tile * c_out_pmax: (oc_tile + 1)
-                  * c_out_pmax] = nl.store(result)
+            bias_sbuf = nl.load(bias_slice)
+
+            result = nisa.tensor_scalar(psum, nl.add, bias_sbuf)
+            X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
+                  * c_out_pmax, :, :] = nl.store(result)
 
     return X_out
