@@ -86,22 +86,16 @@ def conv2d(X, W, bias):
     # 4) Process the images in batches
     for b in nl.affine_range(batch_size):
 
-        # 5) loop over chunk indices
+        # 5) Allocate space for input images in SBUF
+        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), chunk_size, input_width),
+                            dtype=X.dtype, buffer=nl.sbuf)
+
+        # 6) loop over chunk indices
         for chunk_idx in nl.affine_range(n_chunks):
             first_row = chunk_idx * chunk_size
             last_row = min(first_row + chunk_size, input_height)
             rows_in_chunk = last_row - first_row
-            out_rows_in_chunk = rows_in_chunk - (filter_height - 1)
-
-            if out_rows_in_chunk <= 0:
-                # Skip if the chunk does not have any valid rows
-                continue
-
-            out_row_start = first_row
-
-            # 6) Allocate row-chunk sized tiles for input images
-            x_sbuf = nl.ndarray((n_tiles_c_in, c_in_pmax, rows_in_chunk, input_width),
-                                dtype=X.dtype, buffer=nl.sbuf)
+            valid_rows = rows_in_chunk - (filter_height - 1)
 
             # 6) Load that row-chunk of input tiles into SBUF
             for ic_tile in nl.affine_range(n_tiles_c_in):
@@ -112,7 +106,7 @@ def conv2d(X, W, bias):
 
             # 7) Process each output channel tile and accumulate partial sums
             for oc_tile in nl.affine_range(n_tiles_c_out):
-                psum = nl.zeros((nl.par_dim(c_out_pmax), out_rows_in_chunk,
+                psum = nl.zeros((nl.par_dim(c_out_pmax), valid_rows,
                                 out_width), dtype=X.dtype, buffer=nl.psum)
 
                 # 8) Process each input channel tiles
@@ -125,7 +119,7 @@ def conv2d(X, W, bias):
 
                             # Extract input window
                             window = x_sbuf[ic_tile, :, fh:fh +
-                                            out_rows_in_chunk, fw:fw+out_width]
+                                            valid_rows, fw:fw+out_width]
 
                             psum += nl.matmul(w_tile, window)
 
@@ -138,6 +132,6 @@ def conv2d(X, W, bias):
 
                 result = nisa.tensor_scalar(psum, nl.add, bias_sbuf)
                 nl.store(X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
-                               * c_out_pmax, out_row_start: out_row_start + out_rows_in_chunk, :], result)
+                               * c_out_pmax, first_row: first_row + valid_rows, :], result)
 
     return X_out
