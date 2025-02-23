@@ -97,7 +97,8 @@ def conv2d(X, W, bias):
     for out_c_tile in nl.affine_range(n_tiles_c_out):
         w_sbuf[out_c_tile] = nl.load(W[out_c_tile])
 
-    print(in_channels * filter_height * filter_width) > 128
+    assert (in_channels * filter_height *
+            filter_width) <= 128, "You need chunking!"
 
     # Process the images in batches
     for b in nl.affine_range(batch_size):
