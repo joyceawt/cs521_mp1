@@ -118,7 +118,7 @@ def conv2d(X, W, bias):
             bias_sbuf = nl.load(bias_slice)
 
             result = nisa.tensor_scalar(psum, nl.add, bias_sbuf)
-            X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
-                  * c_out_pmax, :, :] = nl.store(result)
+            nl.store(X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
+                           * c_out_pmax, :, :], result)
 
     return X_out
