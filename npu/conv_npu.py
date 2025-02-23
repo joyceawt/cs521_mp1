@@ -68,7 +68,11 @@ def conv2d(X, W, bias):
     n_tiles_c_in = in_channels // c_in_pmax
     n_tiles_c_out = out_channels // c_out_pmax
 
-    # 1) Reshape weights and break out_channels and in_channels into multiple tiles (6D shape)
+    # 1) Reshape X
+    X_reshaped = X.reshape((batch_size, n_tiles_c_in, c_in_pmax,
+                            input_height, input_width))
+
+    # 2) Reshape weights and break out_channels and in_channels into multiple tiles (6D shape)
     W = W.reshape((n_tiles_c_out, c_out_pmax, n_tiles_c_in,
                   c_in_pmax, filter_height, filter_width))
 
@@ -83,11 +87,9 @@ def conv2d(X, W, bias):
 
     # Process the images in batches
     for b in nl.affine_range(batch_size):
-        X_b = X[b]
 
         # Reshape input for tiling
-        X_tiled = X_b.reshape(
-            (n_tiles_c_in, c_in_pmax, input_height, input_width))
+        X_tiled = X_reshaped[b]
         x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), input_height, input_width),
                             dtype=X.dtype, buffer=nl.sbuf)
 
