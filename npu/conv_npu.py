@@ -61,12 +61,14 @@ def conv2d(X, W, bias):
         buffer=nl.hbm,
     )
 
-    # Various tiling dimensions (You may want to define more of them)
+    # Various tiling dimensions
     # num tiles = total number of channels / tile size (max number of channels - 128)
     c_in_pmax = nl.tile_size.pmax  # 128; max number of channels
     c_out_pmax = c_in_pmax  # 128
     n_tiles_c_in = in_channels // c_in_pmax
     n_tiles_c_out = out_channels // c_out_pmax
+    chunk_size = 16  # also known as row chunk size
+    n_chunks = (input_height + chunk_size - 1) // chunk_size
 
     # 1) Reshape weights and break out_channels and in_channels into multiple tiles (6D shape)
     W = W.reshape((n_tiles_c_out, c_out_pmax, n_tiles_c_in,
@@ -81,44 +83,61 @@ def conv2d(X, W, bias):
     for oc_tile in nl.affine_range(n_tiles_c_out):
         w_sbuf[oc_tile] = nl.load(W[oc_tile])
 
-    # Process the images in batches
+    # 4) Process the images in batches
     for b in nl.affine_range(batch_size):
-        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), input_height, input_width),
-                            dtype=X.dtype, buffer=nl.sbuf)
 
-        # Load input tiles into SBUF
-        for ic_tile in nl.affine_range(n_tiles_c_in):
-            start_c = ic_tile * c_in_pmax
-            end_c = start_c + c_in_pmax
-            x_sbuf[ic_tile] = nl.load(X[b, start_c:end_c, :, :])
+        # 5) loop over total number of chunks
+        for chunk in nl.affine_range(n_chunks):
+            first_row = chunk * chunk_size
+            last_row = nl.min(first_row + chunk_size, input_height)
+            rows_in_chunk = last_row - first_row
+            out_rows_in_chunk = rows_in_chunk - (filter_height - 1)
 
-        # Process each output channel tile
-        for oc_tile in nl.affine_range(n_tiles_c_out):
-            psum = nl.zeros((nl.par_dim(c_out_pmax), out_height,
-                            out_width), dtype=X.dtype, buffer=nl.psum)
+            if out_rows_in_chunk <= 0:
+                # Skip if the chunk does not have any valid rows
+                continue
 
-            # Process input channel tiles
+            out_row_start = first_row
+
+            # 6) Allocate row-chunk sized tiles for input images
+            x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), rows_in_chunk, input_width),
+                                dtype=X.dtype, buffer=nl.sbuf)
+
+            # 6) Load that row-chunk of input tiles into SBUF
             for ic_tile in nl.affine_range(n_tiles_c_in):
-                # Process each filter tile
-                for fh in nl.affine_range(filter_height):
-                    for fw in nl.affine_range(filter_width):
-                        # Load the weights for this tile
-                        w_tile = w_sbuf[oc_tile, :, ic_tile, :, fh, fw]
+                start_c = ic_tile * c_in_pmax
+                end_c = start_c + c_in_pmax
+                x_sbuf[ic_tile] = nl.load(
+                    X[b, start_c:end_c, first_row:last_row, :])
 
-                        # Extract input window
-                        window = x_sbuf[ic_tile, :, fh:fh +
-                                        out_height, fw:fw+out_width]
+            # 7) Process each output channel tile and accumulate partial sums
+            for oc_tile in nl.affine_range(n_tiles_c_out):
+                psum = nl.zeros((nl.par_dim(c_out_pmax), out_rows_in_chunk,
+                                out_width), dtype=X.dtype, buffer=nl.psum)
 
-                        psum += nl.matmul(w_tile, window)
+                # 8) Process each input channel tiles
+                for ic_tile in nl.affine_range(n_tiles_c_in):
+                    # 8) Convolution for each filter offset
+                    for fh in nl.affine_range(filter_height):
+                        for fw in nl.affine_range(filter_width):
+                            # Load the weights for this tile
+                            w_tile = w_sbuf[oc_tile, :, ic_tile, :, fh, fw]
 
-            # 4) Add bias and store the result in HBM
-            bias_sbuf = nl.ndarray(
-                (nl.par_dim(c_out_pmax),), dtype=bias.dtype, buffer=nl.sbuf)
-            bias_slice = bias[oc_tile * c_out_pmax: (oc_tile + 1) * c_out_pmax]
-            bias_sbuf = nl.load(bias_slice)
+                            # Extract input window
+                            window = x_sbuf[ic_tile, :, fh:fh +
+                                            out_rows_in_chunk, fw:fw+out_width]
 
-            result = nisa.tensor_scalar(psum, nl.add, bias_sbuf)
-            nl.store(X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
-                           * c_out_pmax, :, :], result)
+                            psum += nl.matmul(w_tile, window)
+
+                # 9) Add bias and store the result in HBM
+                bias_sbuf = nl.ndarray(
+                    (nl.par_dim(c_out_pmax),), dtype=bias.dtype, buffer=nl.sbuf)
+                bias_slice = bias[oc_tile *
+                                  c_out_pmax: (oc_tile + 1) * c_out_pmax]
+                bias_sbuf = nl.load(bias_slice)
+
+                result = nisa.tensor_scalar(psum, nl.add, bias_sbuf)
+                nl.store(X_out[b, oc_tile*c_out_pmax: (oc_tile+1)
+                               * c_out_pmax, out_row_start: out_row_start + out_rows_in_chunk, :], result)
 
     return X_out
