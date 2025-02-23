@@ -110,12 +110,13 @@ def conv2d(X, W, bias):
 
             # 7) Process each output channel tile and accumulate partial sums
             for oc_tile in nl.affine_range(n_tiles_c_out):
+                max_valid = chunk_size - (filter_height - 1)
+                psum = nl.zeros((nl.par_dim(c_out_pmax), max_valid,
+                                out_width), dtype=X.dtype, buffer=nl.psum)
+
                 valid_rows = rows_in_chunk - (filter_height - 1)
                 if valid_rows <= 0:
                     continue
-
-                psum = nl.zeros((nl.par_dim(c_out_pmax), valid_rows,
-                                out_width), dtype=X.dtype, buffer=nl.psum)
 
                 # 8) Process each input channel tiles
                 for ic_tile in nl.affine_range(n_tiles_c_in):
