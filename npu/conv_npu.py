@@ -25,9 +25,6 @@ expect: output_channels % 128 == 0
 out_height = input_height - filter_height + 1
 out_width = input_width - filter_width + 1
 
-out_pool_height = out_height
-out_pool_width = out_width
-
 The shape of the output should be [batch_size, out_channels, out_pool_height, out_pool_width]
 
 """
@@ -49,11 +46,9 @@ def conv2d(X, W, bias):
     out_height = input_height - filter_height + 1
     out_width = input_width - filter_width + 1
 
-    out_pool_height = out_height
-    out_pool_width = out_width
-
     # Can assume multiple of 128 to avoid using mask
     assert in_channels % 128 == 0
+    assert out_channels % 128 == 0
 
     # Can assume one PSUM bank can at least fit one row of the pixels
     # gemm_moving_fmax is max number of pixels that can be processed in one cycle
@@ -94,11 +89,16 @@ def conv2d(X, W, bias):
                         c_in_pmax, filter_height, filter_width), dtype=W.dtype, buffer=nl.sbuf)
 
     # 3) Loop and load weights from HBM to SBUF
-    for out_c_tile in nl.affine_range(n_tiles_c_out):
-        w_sbuf[out_c_tile] = nl.load(W[out_c_tile])
+    for oc_tile in nl.affine_range(n_tiles_c_out):
+        w_sbuf[oc_tile] = nl.load(W[oc_tile])
 
-    assert (in_channels * filter_height *
-            filter_width) <= 128, "You need chunking!"
+    # temporary, just check if i can use
+    try:
+        test_psum = nl.zeros((c_out_pmax, out_width),
+                             dtype=X.dtype, buffer=nl.psum)
+        assert 'can use psum'
+    except RuntimeError:
+        pass
 
     # Process the images in batches
     for b in nl.affine_range(batch_size):
