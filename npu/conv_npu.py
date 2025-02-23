@@ -87,7 +87,7 @@ def conv2d(X, W, bias):
     for b in nl.affine_range(batch_size):
 
         # 5) Allocate space for input images in SBUF
-        x_sbuf = nl.ndarray((n_tiles_c_in, nl.par_dim(c_in_pmax), chunk_size, input_width),
+        x_sbuf = nl.ndarray((n_tiles_c_in, c_in_pmax, chunk_size, input_width),
                             dtype=X.dtype, buffer=nl.sbuf)
 
         # 6) loop over chunk indices
