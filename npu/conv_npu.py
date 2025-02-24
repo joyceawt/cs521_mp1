@@ -93,7 +93,7 @@ def conv2d(X, W, bias):
                             dtype=X.dtype, buffer=nl.sbuf)
 
         # 6) Loop over chunks and do load and compute
-        for chunk_idx in nl.affine_range(n_chunks):
+        for chunk_idx in nl.sequential_range(n_chunks):
 
             # advanced indexing to load chunk_idx rows
             i_par, i_row, i_col = nl.mgrid[0: c_in_pmax,
@@ -103,7 +103,7 @@ def conv2d(X, W, bias):
 
             # For each in channel tile
             for ic_tile in nl.affine_range(n_tiles_c_in):
-                x_sbuf[chunk_idx, ic_tile, i_par, i_row, i_col] = nl.load(
+                x_sbuf[ic_tile, i_par, i_row, i_col] = nl.load(
                     X[b, ic_tile*c_in_pmax + i_par, global_row, i_col], mask=mask)
 
             # 7) Process each output channel tile and calculate local partial sum right after loading
@@ -123,7 +123,7 @@ def conv2d(X, W, bias):
                             w_tile = w_sbuf[oc_tile, :, ic_tile, :, fh, fw]
 
                             # Extract input window by slicing from x_sbuf
-                            window = x_sbuf[chunk_idx, ic_tile, :,
+                            window = x_sbuf[ic_tile, :,
                                             fh: fh+chunk_size, fw: fw + out_width]
 
                             tile_psum += nl.matmul(w_tile, window)
