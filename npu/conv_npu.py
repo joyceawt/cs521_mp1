@@ -28,8 +28,6 @@ out_width = input_width - filter_width + 1
 The shape of the output should be [batch_size, out_channels, out_pool_height, out_pool_width]
 
 """
-# Using stanford reference,. INPUT_DEPTH = input_channels
-# LAYER_NUM_FILTERS = output_channels
 
 
 @nki.jit
@@ -62,7 +60,6 @@ def conv2d(X, W, bias):
     )
 
     # Various tiling dimensions
-    # num tiles = total number of channels / tile size (max number of channels - 128)
     c_in_pmax = nl.tile_size.pmax  # 128; max number of channels
     c_out_pmax = c_in_pmax  # 128
     n_tiles_c_in = in_channels // c_in_pmax
@@ -130,7 +127,7 @@ def conv2d(X, W, bias):
                     dtype=nl.float32, buffer=nl.psum
                 )
 
-                # 9) Accumulate partial sums across all input channel tiles
+                # 8) Accumulate partial sums across all input channel tiles
                 for ic_tile in nl.affine_range(n_tiles_c_in):
 
                     for fh in nl.affine_range(filter_height):
@@ -144,7 +141,7 @@ def conv2d(X, W, bias):
 
                             tile_psum += nl.matmul(w_tile, window)
 
-                # 10) Add bias and store the result in HBM
+                # 9) Add bias and store the result in HBM
                 bias_sbuf = nl.ndarray(
                     (nl.par_dim(c_out_pmax),), dtype=bias.dtype, buffer=nl.sbuf)
 
