@@ -76,7 +76,7 @@ def conv2d(X, W, bias):
         chunk_size = 16
     elif input_height <= 160:
         chunk_size = 8
-    elif input_height <= 180:
+    elif input_height <= 170:
         chunk_size = 4
     else:
         chunk_size = 2
