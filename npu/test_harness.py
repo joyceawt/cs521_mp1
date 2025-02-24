@@ -111,7 +111,8 @@ def test_performance_conv2d_kernel(
         np.float16: 1120.5
     }
 
-    X = np.random.rand(batch_size, in_channels, image_height, image_width).astype(dtype)
+    X = np.random.rand(batch_size, in_channels,
+                       image_height, image_width).astype(dtype)
     W = np.random.rand(out_channels, in_channels, kernel_height, kernel_width).astype(
         dtype
     )
@@ -128,11 +129,14 @@ def test_performance_conv2d_kernel(
     sys.stdout = text_trap
     bench_func(*args)
     sys.stdout = sys.__stdout__
-    p99_us_student = bench_func.benchmark_result.nc_latency.get_latency_percentile(99)
-    print(f"\n\nExecution Time for student implementation: {p99_us_student} μs")
+    p99_us_student = bench_func.benchmark_result.nc_latency.get_latency_percentile(
+        99)
+    print(
+        f"\n\nExecution Time for student implementation: {p99_us_student} μs")
 
     if p99_us_student > performance_requirements_by_dtype[dtype]:
-        print(f"Performance requirement not met: need to be under {performance_requirements_by_dtype[dtype]} μs")
+        print(
+            f"Performance requirement not met: need to be under {performance_requirements_by_dtype[dtype]} μs")
         return False
 
     return True
@@ -161,6 +165,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed", type=int, default=42, help="Seed for random number generation"
     )
+    parser.add_argument(
+        "--only-perf", action="store_true", help="Only run performance tests"
+    )
 
     args = parser.parse_args()
 
@@ -168,44 +175,48 @@ if __name__ == "__main__":
 
     if args.simulate:
         conv2d = simulate_kernel_wrapper(conv2d)
+
     # running correctness tests
-    print(
-        "Running correctness test for conv2d kernel with smaller images...",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=False)
-    if test_result:
-        print("Passed 😎")
-    else:
-        print("Failed 😢")
+    if not args.only_perf:
+        print(
+            "Running correctness test for conv2d kernel with smaller images...",
+            end="",
+            flush=True,
+        )
+        test_result = test_correctness_conv2d_kernel(
+            conv2d, use_larger_images=False)
+        if test_result:
+            print("Passed 😎")
+        else:
+            print("Failed 😢")
 
-    print(
-        "Running correctness test for conv2d kernel with larger images...",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(conv2d, use_larger_images=True)
-    if test_result:
-        print("Passed 😇")
-    else:
-        print("Failed 😢")
+        print(
+            "Running correctness test for conv2d kernel with larger images...",
+            end="",
+            flush=True,
+        )
+        test_result = test_correctness_conv2d_kernel(
+            conv2d, use_larger_images=True)
+        if test_result:
+            print("Passed 😇")
+        else:
+            print("Failed 😢")
 
-    print(
-        "Running correctness test for conv2d kernel with larger images + bias...",
-        end="",
-        flush=True,
-    )
-    test_result = test_correctness_conv2d_kernel(
-        conv2d, use_bias=True, use_larger_images=True
-    )
-    if test_result:
-        print("Passed 😍")
-    else:
-        print("Failed 😢")
+        print(
+            "Running correctness test for conv2d kernel with larger images + bias...",
+            end="",
+            flush=True,
+        )
+        test_result = test_correctness_conv2d_kernel(
+            conv2d, use_bias=True, use_larger_images=True
+        )
+        if test_result:
+            print("Passed 😍")
+        else:
+            print("Failed 😢")
 
     print("Comparing performance with reference kernel (float32)...")
-    test_result = test_performance_conv2d_kernel(conv2d, dtype = np.float32)
+    test_result = test_performance_conv2d_kernel(conv2d, dtype=np.float32)
     if test_result:
         print("Performance test passed 😍")
     else:
@@ -213,9 +224,10 @@ if __name__ == "__main__":
 
     if args.profile is not None:
         save_trace(args.profile + "_float32", "file_float32.neff")
-    
+
     print("Comparing performance with reference kernel (float16)...")
-    test_result = test_performance_conv2d_kernel(conv2d, dtype = np.float16)
+    test_result = test_performance_conv2d_kernel(conv2d, dtype=np.float16)
+
     if test_result:
         print("Performance test passed 😍")
     else:
